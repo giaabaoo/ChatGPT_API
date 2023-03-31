@@ -3,3 +3,4 @@ augment_data_zh/
 *.txt
 *.json
 *.sh
+opt_run.sh
