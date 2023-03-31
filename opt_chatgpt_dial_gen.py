@@ -1,5 +1,4 @@
 import openai
-import pandas as pd
 import json
 import argparse
 import os
@@ -32,10 +31,9 @@ def process_explanation(explanation):
 
     return {"summary": summary, "changepoints": changepoints_dict}
 
-language = ['English']
 emotions = ["fear", "anger", "joy", "sadness", "disgust","surprise", "trust", "anticipation","neutral"]
 
-def generate_dialogue_and_explanation_async(k, api_key, model_engine):
+def generate_dialogue_and_explanation_async(k, api_key, model_engine, language):
     openai.api_key = api_key
 
     definition_text = f"A changepoint in a conversation is when there's \
@@ -45,17 +43,17 @@ def generate_dialogue_and_explanation_async(k, api_key, model_engine):
     either positively or negatively in a significant way."
     
     first_prompt = f"With this definition \"{definition_text}\" \n \
-    Generate a dialogue with up to 20 turns of text messages between two people \
+    Generate a dialogue in \"{language}\" language with up to 20 turns of text messages between two people \
     (family, friends, acquaintances) about a topic (on a discussion forum or SMS app) \
-    (can be the start of conversation or the middle of conversation). \
+    (can be the start of conversation or in the middle of conversation). \
     For each line, annotate STRICTLY at the end the emotion of the line with the emotions \
     from this list {emotions} (use emotions from this list only) \
     and label 1 for CP and label 0 for non-CP. It should \
     have the document name {k} and the increasing id the sentence with the format xxxx \
     and the speaker id (a random number) in that conversation. \
-    For example: \n \
-    M010009BC_0005 | 137903: I've just broken up with my gf. [sadness, 1]. \n \
-    M010009BC_0006 | 256348: Wow really?? I'm so sorry to hear that... [surprise, 0]. "
+    For example: \
+    AUGMENT1_0005 | 137903: 我刚刚和我的女朋友分手了。 [sadness, 1]. \n \
+    AUGMENT1_0006 | 256348: 哇塞！真的么？？ 听到这个我很难过... [surprise, 0]. "
 
     dic = {'role': 'user', 'content': first_prompt}
     completion = openai.ChatCompletion.create(model=model_engine, messages=[dic])
@@ -66,12 +64,14 @@ def generate_dialogue_and_explanation_async(k, api_key, model_engine):
     you think this each line in this dialogue contains a changepoint \
     (where there is the number 1 in the square brackets at the end of the line.) : \n {dialogue.strip()} \n \
     Consider the whole dialogue. If a point is not a significant changepoint, skip it and do not show me the output for that point. \
+    Also, add an impact scalar for each changepoint to determine the importance of the point in the whole conversation. Impact scalars \
+    are integers from 1 to 5 (1 is the most negative, 5 is the most positive) \
     The format should be like this: \n \
     SUMMARY: The conversation is about a man and a girl talking about their school projects. \n \
-    CHANGEPOINT 1 (M010009BC_0005): There is a shift in the tone of the conversations. The girl is upset \
+    CHANGEPOINT 1 (AUGMENT1_0005) (impact_scalar=1): There is a shift in the tone of the conversations. The girl is upset \
     because her mid-term grade is bad, it affects the overall mood significantly. \
     The inital tone is serious and professional. \n \
-    CHANGEPOINT 2 (M010009BC_0010): There is a shift in the tone and topic of the conversations. \
+    CHANGEPOINT 2 (AUGMENT1_0010) (impact_scalar=5) There is a shift in the tone and topic of the conversations. \
     The man is cracking a very funny joke that clear the heaviness of the conversation. \
     This is a significant changepoint because most of the conversation is serious before this point."
     
@@ -100,6 +100,7 @@ def main(opt):
                     f'AUGMENT{i}',
                     opt['api_key'],
                     opt['model_engine'],
+                    opt['language']
                 )
                 future_to_key[future] = f'AUGMENT{i}'
 
@@ -110,7 +111,7 @@ def main(opt):
             # processed_explanation = process_explanation(explanation)
 
             syn_dials[k] = {
-                'language': 'English',
+                'language': opt['language'],
                 'dialogue': dialogue,
                 'explanation': explanation,
                 # 'processed_dialogue': processed_dialogue,
@@ -137,6 +138,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_engine', type=str, default='gpt-3.5-turbo')
     parser.add_argument('--syn_dials', type=str, default='synCP_dials.json', help = 'save/load generated dialogues')
     parser.add_argument('--num_samples', type=int, default=None, help='Number of elements in captions JSON to process')
+    parser.add_argument('--language', type=str, default='English', help='Language of the generated conversation')
 
     args = parser.parse_args()
 

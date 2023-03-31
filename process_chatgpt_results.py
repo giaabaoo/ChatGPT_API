@@ -8,7 +8,7 @@ if __name__ == "__main__":
     with open('synCP_dials.json', 'r') as f:
         syn_dials = json.load(f)
 
-    folder_name = 'augment_data/text_augment'
+    folder_name = 'augment_data_zh/text_augment'
     Path(folder_name).mkdir(parents=True, exist_ok=True)
 
     for file_name in tqdm(syn_dials.keys()):

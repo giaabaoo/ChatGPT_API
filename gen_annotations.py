@@ -1,12 +1,13 @@
 import json
 import re
 import csv
+from googletrans import Translator
 import pdb
 
 def process_explanation(explanation):
     summary = re.search(r'SUMMARY: (.*)\n', explanation).group(1)
-    changepoints = re.findall(r'CHANGEPOINT \d+ \((.*?)\): (.*?)\n', explanation)
-    changepoints_dict = {i: {'segment_id': segment_id, 'comment': comment} for i, (segment_id, comment) in enumerate(changepoints, start=1)}
+    changepoints = re.findall(r'CHANGEPOINT \d+ \((.*?)\)\s*\((.*?)=(\d+)\): (.+)', explanation)
+    changepoints_dict = {i+1: {'segment_id': segment_id, 'impact_scalar': int(impact_scalar), 'comment': comment} for i, (segment_id, field_name, impact_scalar, comment) in enumerate(changepoints)}
 
     return {"summary": summary, "changepoints": changepoints_dict}
 
@@ -24,17 +25,24 @@ def process_dialogue(dialogue):
     lines = dialogue.split('\n')
     return [dict(zip(['segment_id', 'speaker', 'sentence_text', 'emotion', 'CP_label'], extract_string_results(line))) for line in lines]
 
-def calculate_timestamp(text, full_text_msg):
-    start_char = full_text_msg.index(text)
-    return start_char
+def translate_text(text):
+    # Create an instance of the Translator class
+    translator = Translator()
+
+    # Translate the text to English
+    translated_text = translator.translate(text, src='zh-cn', dest='en').text
+    
+
+    # Returns the translated text
+    return translated_text
 
 if __name__ == "__main__":
     with open('synCP_dials.json', 'r') as f:
         syn_dials = json.load(f)
 
     # Define the output file name and header
-    output_file = 'augment_data/text_augment_annotations.csv'
-    fieldnames = ['file_id', 'segment_id', 'start', 'end', 'type', 'duration' , 'changepoint_timestamp', 'msg', 'emotion','comments', 'summary']
+    output_file = 'augment_data_zh/text_augment_annotations.csv'
+    fieldnames = ['file_id', 'segment_id', 'start', 'end', 'type', 'duration' , 'changepoint_timestamp', 'msg', 'translation', 'impact_scalar', 'emotion','comments', 'summary']
 
     with open(output_file, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -48,8 +56,8 @@ if __name__ == "__main__":
             lines = [line.strip() for line in dialogue.split('\n')]
 
             # Extract the sentences that start with the segment ID and the speaker name
-            sentences = [re.sub(r'\s*\[.*?\]\s*', '', line.split(': ')[1]) for line in lines if line.startswith('AUGMENT')]
-
+            sentences = [re.sub(r'\s*\[.*?\]\s*', '', line.split(': ')[1]) for line in dialogue.split('\n') if line.startswith('A')]
+                
             # Join the sentences into a single string
             full_text_msg = ' '.join(sentences)
 
@@ -67,10 +75,15 @@ if __name__ == "__main__":
             for i, segment in enumerate(segments, start=1):
                 # Extract the relevant information from the segment
                 segment_id, string = segment.split(' | ')
-                text = string.split(": ")[1].split(" [")[0]
+                text = re.search(r':\s*(.+?)\s*\[', string).group(1)
                 emotion = string.split("[")[1].split(",")[0]
+                
+                try:
+                    english_sentence = translate_text(text)
+                except Exception as e:
+                    english_sentence = "Translation failed!"
 
-                start = int(re.search(r'\d+', segment_id).group())
+                start = full_text_msg.find(text)
                 end = start + len(text) - 1
 
                 segment_data = {
@@ -82,19 +95,22 @@ if __name__ == "__main__":
                     'duration': len(text),
                     'changepoint_timestamp': -1,
                     'msg': text,
+                    'translation' : english_sentence,
+                    'impact_scalar' : 0,
                     'emotion': emotion,
                     'comments': '',
                     'summary': summary
                 }
 
+                
                 # Check if the segment is a changepoint and update the data accordingly
                 if segment_id in positive_segment_ids:
                     index = positive_segment_ids.index(segment_id) + 1
                     changepoint = changepoints[index]
-
-
+                    
                     segment_data['comments'] = changepoint['comment']
-                    segment_data['changepoint_timestamp'] = calculate_timestamp(text, full_text_msg)
+                    segment_data['impact_scalar'] = changepoint['impact_scalar']
+                    segment_data['changepoint_timestamp'] = start
 
                 # Write the segment data to the output file
                 writer.writerow(segment_data)
