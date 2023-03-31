@@ -1,4 +1,5 @@
-augment_data/
+augment_data_en/
+augment_data_zh/
 *.txt
 *.json
 *.sh
