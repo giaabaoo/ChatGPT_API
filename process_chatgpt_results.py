@@ -12,10 +12,9 @@ if __name__ == "__main__":
     Path(folder_name).mkdir(parents=True, exist_ok=True)
 
     for file_name in tqdm(syn_dials.keys()):
-            
         dialogue = syn_dials[file_name]["dialogue"]
         # Remove the square brackets, their contents, and the final period from the dialogue
-        dialogue = re.sub(r'\[.*?\]', '', dialogue).rstrip('.').replace('AUGMENT', '\nAUGMENT').replace('\n\n', '\n')
+        dialogue = re.sub(r'\[.*?\]', '', dialogue).rstrip('.').replace('AUGMENT', '\nAUGMENT').replace('\n\n', '\n')[1:]
         
         # Write the dialogue to a text file
         file_path = Path(folder_name) / f"{file_name}.txt"

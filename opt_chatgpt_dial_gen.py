@@ -48,8 +48,9 @@ def generate_dialogue_and_explanation_async(k, api_key, model_engine, language):
     (can be the start of conversation or in the middle of conversation). \
     For each line, annotate STRICTLY at the end the emotion of the line with the emotions \
     from this list {emotions} (use emotions from this list only) \
-    and label 1 for CP and label 0 for non-CP. It should \
-    have the document name {k} and the increasing id the sentence with the format xxxx \
+    and label 1 for CP and label 0 for non-CP. There should be at most 3 lines with label=1 so \
+    choose the line with changepoints carefully by stricly follow the definition.\
+    It should have the document name {k} and the increasing id the sentence with the format xxxx \
     and the speaker id (a random number) in that conversation. \
     For example: \
     AUGMENT1_0005 | 137903: 我刚刚和我的女朋友分手了。 [sadness, 1]. \n \
